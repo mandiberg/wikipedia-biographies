@@ -129,6 +129,7 @@ for slice in range(0,4): # for testing
 	# if counter % n == 0:
 
 		#set datatypes
+		dfallmetas = dfallmetas.drop_duplicates()
 		dfallmetas["rev_id"] = dfallmetas['rev_id'].fillna(0).astype('int')
 		dfallmetas["c_rev_id"] = dfallmetas['c_rev_id'].fillna(0).astype('int')
 		dfallmetas['c_timestamp'] = dfallmetas['c_timestamp'].fillna(0).astype('int64').astype(str)
@@ -136,33 +137,15 @@ for slice in range(0,4): # for testing
 		# print(dfallmetas.info())
 
 		#locate and concat the most most recent timestamp
-		idx = dfallmetas.groupby(['page_id'])['timestamp'].transform(max) == dfallmetas['timestamp']
-		dftemp = dfallmetas[idx]
+		idx = dfallmetas.groupby(['page_id'])['c_timestamp'].transform(max) == dfallmetas['c_timestamp']
+		dftemp = dfallmetas[idx].drop_duplicates()
 
-
-		# dftempy = dfallmetas.groupby(['page_id'])['timestamp'].agg('max')
-		# # tempy = dfallmetas.groupby(['page_id'])['timestamp'].transform(max)
-
-		# print('tempy')
-		# print(dftempy.count)
-		# print(dftempy)
-
-		# why is it not clearing the df after saving?
-		# why is the newest the same for both saves?
-		# why can't i group and max the newest ones? 
-		# then i need to reassign the column names, moving most recent parent to the child column
-
+		# swap parent/child column names for the newest revision
 		dfnewest['page_id'] = dftemp.iloc[:, 0]
-		dfnewest['c_rev_id'] = dftemp.iloc[:, 1]
-		dfnewest['c_timestamp'] = dftemp.iloc[:, 4]
-		# dfnewest = dfnewest.unique()
+		dfnewest['rev_id'] = dftemp.iloc[:, 2]
+		dfnewest['timestamp'] = dftemp.iloc[:, 3]
 
-		# # well, that did SOMETHING. unsure what...!!!! 
-		# dfnewest = dfnewest.groupby('page_id')['c_timestamp'].apply(lambda x: list(np.unique(x)))
-
-		# print('dfnewest')
-		# print(dfnewest)
-
+		# add newest to main df
 		# dfallmetas = pd.concat([dfallmetas, dfnewest], ignore_index=True, sort=False)
 
 		#writes dfs
