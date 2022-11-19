@@ -128,3 +128,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 *.cnf
+get_revision_IDs/.DS_Store
