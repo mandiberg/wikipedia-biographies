@@ -1,0 +1,227 @@
+SELECT *,r.rev_timestamp-p.rev_timestamp FROM revision r, revision p WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20150000000000 AND r.rev_parent_id=p.rev_id ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+
+
+SELECT *,STR_TO_DATE(r.rev_timestamp,'%Y%m%d%H%M%S'),STR_TO_DATE(p.rev_timestamp,'%Y%m%d%H%M%S')
+FROM revision r, revision p WHERE r.rev_page=24176 AND r.rev_deleted=0
+AND p.rev_deleted=0 AND r.rev_timestamp < 20150000000000 AND
+r.rev_parent_id=p.rev_id ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+
+
+SELECT *,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+
+
+
+SELECT *,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND r.rev_len != (SELECT gp.rev_len FROM revision pr, revision gp WHERE pr.rev_id=p.rev_id AND pr.rev_deleted=0 AND gp.rev_deleted=0 AND pr.rev_parent_id=gp.rev_id ORDER BY pr.rev_timestamp DESC LIMIT 1) ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+
+SELECT *,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, change_tag ch WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND ch.ct_rev_id=p.rev_id AND ch.ct_params IS  NULL AND r.rev_len != (SELECT gp.rev_len FROM revision pr, revision gp WHERE pr.rev_id=1102074205 AND pr.rev_deleted=0 AND gp.rev_deleted=0 AND pr.rev_parent_id=gp.rev_id ORDER BY pr.rev_timestamp DESC LIMIT 1) ORDER BY r.rev_timestamp DESC LIMIT 1\G;
+
+
+2022080000000
+
+1101985612 good, before vandal, then rev.
+r - 1101985612
+p - 1101986174 - bad edit
+gp - 1102074205 - reversion
+
+
+this finds parent rev where the child rev isn't a reversion based off of auto-edit comment. So for this, the desired data is the parent rev_id. 
+
+SELECT *,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+integrating the version which excludes any edit whose parent edit has tags (ct_params), but switching the test to the child:
+
+SELECT *,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, change_tag ch WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND ch.ct_rev_id=r.rev_id AND ch.ct_params IS  NULL ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+Give this:
+
+SELECT p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page=41819543 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20100804000000 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' AND ch.ct_rev_id=r.rev_id AND ch.ct_params IS  NULL ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+this timestamp asks it to consider 1102074205, which is a reversion of the previous edit. It notes that the previous edit 1101986174 is bad, and skips it, and returns the previous (grandparent) edit 1101985612
+
+if you do the version without these filters 
+
+SELECT *,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+you will see that you get the parent as 1101986174, the bad edit.
+
+
+
+FIND ALL TAGS
+
+SELECT * FROM change_tag_def ch ORDER BY ch.ctd_count DESC;
+
+
+JOIN comment ON rev_comment_id = comment_id
+
+test of parent. question is: is parent a good edit, if so, will use that. So start with GP. 
+
+gp.rev_len
+
+SELECT * FROM revision r, revision p, WHERE r.rev_id=1101985612 , WHERE ORDER BY r.rev_timestamp DESC LIMIT 1\G
+rev_parent_id
+
+(SELECT p.rev_len FROM revision r, revision p WHERE r.rev_id=1102074205 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_parent_id=p.rev_id ORDER BY r.rev_timestamp DESC LIMIT 1)
+
+SELECT gp.rev_len FROM revision pr, revision gp WHERE pr.rev_id=1102074205 AND pr.rev_deleted=0 AND gp.rev_deleted=0 AND pr.rev_parent_id=gp.rev_id ORDER BY pr.rev_timestamp DESC LIMIT 1
+
+
+Would it be better to also exclude edits where the sum of the r and p byte count = 0? Is that possible? I see that revision has a rev_len. But I don't see a diff length. So maybe where r.rev_len == the parent of the parent's rev_len (grandparent? gp.rev_len?) I think you can nest requests in order to get to the gp?
+https://www.mediawiki.org/wiki/Manual:Revision_table
+
+
+
+SELECT ch.ct_params, p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' AND ch.ct_rev_id=r.rev_id AND ch.ct_params IS NOT NULL ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+
+working!!!!
+
+SELECT r.rev_page, p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' AND ch.ct_rev_id=p.rev_id AND ch.ct_tag_id NOT IN (590, 1, 8, 16, 582, 21, 20, 28, 577, 6, 31, 26, 14, 43, 39, 32, 60, 29, 52, 46, 561, 45, 59, 56, 216, 172, 87, 193, 217, 86, 539) ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+
+SELECT p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' AND ch.ct_rev_id=r.rev_id AND json_extract(ch.ct_params, '$.revertTags') NOT LIKE ('mw-reverted') ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+
+WHERE 
+
+
+
+
+('%mw-reverted%','%mw-undo%','%mw-rollback%','%mw-replace%','%mw-manual-revert%','%references removed%','%possible libel or vandalism%','%Section blanking%','%RedWarn%','%mw-blank%','%blanking%','%possible vandalism%','%Possible self promotion in userspace%','%Possible vandalism%','%bad external%','%Rapid reverts%','%coi-spam%','%Possible disruption%','%nonsense characters%','%reference list removal%','%self-published-blog%','%reverting anti-vandal bot%','%possible link spam%','%discretionary sanctions alert%','%test edits%','%excessive whitespace%','%Newer user possibly adding unreferenced or improperly referenced material%','%new article with no mention of title%','%unusual redirect%','%New user changing redirect or redirecting%','%undo%')
+
+
+
+SELECT * FROM change_tag_def ch ORDER BY ch.ctd_count DESC;
+
+SELECT * FROM change_tag_def ch 
+ORDER BY
+(CASE
+    WHEN ch.ctd_count>10000 THEN ch.ctd_id
+    ELSE ch.ctd_count
+END)
+DESC; 
+
+
+(CASE
+    WHEN r.rev_timestamp > 20150804000000 THEN c.comment_text NOT LIKE '%Undid revision%' 
+    ELSE c.comment_text NOT LIKE '%Undid revision%'
+END) 
+ORDER BY ch.ctd_count DESC;
+
+
+
+SELECT p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' AND ch.ct_rev_id=r.rev_id AND ch.ct_params IS  NULL ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+this timestamp asks it to consider 1102074205, which is a reversion of the previous edit. It notes that the previous edit 1101986174 is bad, and skips it, and returns the previous (grandparental) edit 1101985612. 
+
+
+
+
+working!!!!
+
+SELECT r.rev_page, p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page=67798373 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' AND ch.ct_rev_id=p.rev_id AND ch.ct_tag_id NOT IN (590, 1, 8, 16, 582, 21, 20, 28, 577, 6, 31, 26, 14, 43, 39, 32, 60, 29, 52, 46, 561, 45, 59, 56, 216, 172, 87, 193, 217, 86, 539) ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+here is with multiple files
+
+SELECT r.rev_page, p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page IN (24176, 311615)  AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' AND ch.ct_rev_id=p.rev_id AND ch.ct_tag_id NOT IN (590, 1, 8, 16, 582, 21, 20, 28, 577, 6, 31, 26, 14, 43, 39, 32, 60, 29, 52, 46, 561, 45, 59, 56, 216, 172, 87, 193, 217, 86, 539) ORDER BY r.rev_timestamp DESC LIMIT 1\G
+
+
+one id, all the revisions
+SELECT r.rev_page, p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' AND ch.ct_rev_id=p.rev_id AND (ch.ct_params IS  NULL OR ch.ct_tag_id NOT IN (590, 1, 8, 16, 582, 21, 20, 28, 577, 6, 31, 26, 14, 43, 39, 32, 60, 29, 52, 46, 561, 45, 59, 56, 216, 172, 87, 193, 217, 86, 539)) ORDER BY r.rev_timestamp DESC;
+
+
+-- OUTER JOIN for one id, all the revisions
+SELECT r.rev_page, p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) 
+FROM revision r LEFT JOIN
+	revision p
+	ON r.rev_parent_id=p.rev_id LEFT JOIN
+	comment c 
+	ON r.rev_comment_id = c.comment_id LEFT JOIN
+	change_tag ch 
+	ON ch.ct_rev_id=p.rev_id
+WHERE r.rev_page=24176 
+AND r.rev_deleted=0 AND p.rev_deleted=0 
+AND c.comment_text NOT LIKE '%Undid revision%'
+AND (ch.ct_params IS  NULL OR ch.ct_tag_id NOT IN (590, 1, 8, 16, 582, 21, 20, 28, 577, 6, 31, 26, 14, 43, 39, 32, 60, 29, 52, 46, 561, 45, 59, 56, 216, 172, 87, 193, 217, 86, 539)) 
+ORDER BY r.rev_timestamp DESC;
+
+
+
+-- OUTER JOIN resolves redirects, all the revisions
+SELECT r.rev_page, p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp), pg.page_id target, op.page_id original,IFNULL(pg.page_id,op.page_id) conditional 
+FROM 
+	page op LEFT JOIN
+	redirect rd ON (rd_from=op.page_id) LEFT JOIN 
+	page pg 
+	ON (pg.page_namespace=rd_namespace AND pg.page_title=rd_title) LEFT JOIN
+	revision r 
+	ON IFNULL(pg.page_id,op.page_id) = r.rev_page LEFT JOIN
+	revision p
+	ON r.rev_parent_id=p.rev_id LEFT JOIN
+	comment c 
+	ON r.rev_comment_id = c.comment_id LEFT JOIN
+	change_tag ch 
+	ON ch.ct_rev_id=p.rev_id
+WHERE op.page_id IN (66878638,68244960)
+AND r.rev_deleted=0 AND p.rev_deleted=0 
+AND c.comment_text NOT LIKE '%Undid revision%'
+AND (ch.ct_params IS  NULL OR ch.ct_tag_id NOT IN (590, 1, 8, 16, 582, 21, 20, 28, 577, 6, 31, 26, 14, 43, 39, 32, 60, 29, 52, 46, 561, 45, 59, 56, 216, 172, 87, 193, 217, 86, 539)) 
+ORDER BY r.rev_timestamp DESC;
+
+
+-- OUTER JOIN resolves redirects, all the revisions
+SELECT r.rev_page, p.rev_id p_rev_id, r.rev_id c_rev_id, TIMEDIFF(r.rev_timestamp,p.rev_timestamp), pg.page_id target, op.page_id original,IFNULL(pg.page_id,op.page_id) conditional 
+FROM 
+	page op LEFT JOIN
+	redirect rd ON (rd_from=op.page_id) LEFT JOIN 
+	page pg 
+	ON (pg.page_namespace=rd_namespace AND pg.page_title=rd_title) LEFT JOIN
+	revision r 
+	ON IFNULL(pg.page_id,op.page_id) = r.rev_page LEFT JOIN
+	revision p
+	ON r.rev_parent_id=p.rev_id LEFT JOIN
+	comment c 
+	ON r.rev_comment_id = c.comment_id LEFT JOIN
+	change_tag ch 
+	ON ch.ct_rev_id=p.rev_id
+WHERE op.page_id IN (66878638,68244960)
+AND r.rev_deleted=0 AND (p.rev_deleted=0 OR p.rev_deleted IS NULL)
+AND c.comment_text NOT LIKE '%Undid revision%'
+AND (ch.ct_params IS NULL OR ch.ct_tag_id NOT IN (590, 1, 8, 16, 582, 21, 20, 28, 577, 6, 31, 26, 14, 43, 39, 32, 60, 29, 52, 46, 561, 45, 59, 56, 216, 172, 87, 193, 217, 86, 539)) 
+ORDER BY r.rev_timestamp DESC;
+
+
+SELECT p.page_id target, op.page_id original,IFNULL(p.page_id,op.page_id) conditional 
+
+FROM page op LEFT JOIN
+redirect rd ON (rd_from=op.page_id) LEFT JOIN 
+page p 
+ON (p.page_namespace=rd_namespace AND p.page_title=rd_title) 
+WHERE op.page_id IN (66878638,68244960);
+
+
+SELECT r.rev_page, p.rev_id, p.rev_timestamp, TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' ORDER BY r.rev_timestamp DESC;
+
+
+-- gets everything, doesn't consider comments
+SELECT r.rev_page, p.rev_id, p.rev_timestamp, TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c WHERE r.rev_page IN (24176, 311615)   AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' ORDER BY r.rev_timestamp DESC;
+
+-- gets the new page from a redirected page
+SELECT page_id FROM page, redirect rd WHERE page_namespace=rd_namespace AND page_title=rd_title AND rd_from=68244960\G
+
+
+
+
+-attempt to use CASE to condition a post 2015 query
+SELECT r.rev_page, p.rev_id, p.rev_timestamp, TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page=24176 AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' ORDER BY 
+(CASE
+    WHEN r.rev_id < 674969812 THEN r.rev_id
+    ELSE r.rev_timestamp
+END)
+DESC;
+
+SELECT r.rev_page, p.rev_id,TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c, change_tag ch WHERE r.rev_page IN (24176, 311615) AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_timestamp < 20220804000000 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' AND ch.ct_rev_id=p.rev_id AND ch.ct_tag_id NOT IN (590, 1, 8, 16, 582, 21, 20, 28, 577, 6, 31, 26, 14, 43, 39, 32, 60, 29, 52, 46, 561, 45, 59, 56, 216, 172, 87, 193, 217, 86, 539) ORDER BY r.rev_timestamp DESC 
+
