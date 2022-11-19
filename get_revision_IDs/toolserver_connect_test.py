@@ -110,21 +110,18 @@ dfnewest = pd.DataFrame(columns=['page_id','rev_id','c_rev_id','c_timestamp','ti
 id_exec_list = []
 # date = 20200101000000
 # date_list = [20220804000000, 20210804000000]
-for slice in range(0,2): # for testing
+for slice in range(0,4): # for testing
 # for slice in range(0,slices):
 	id_list = list_df[slice]['Page ID'].fillna(0).astype(int).tolist()	
 	id_exec_list = id_exec_list + id_list
 	
 	if len(id_list) < n:
-		print ("TOOOOO SMAAAALLLLLLL")
+		print ("less than n items, going one by one")
 		for page_id in id_list:
 			dfallmetas = doQuery( myConnection, page_id, dfallmetas )
-			pass
 	else:
-# 		print (len(id_list))	
 		#execute query
 		dfallmetas = doQuery( myConnection, id_list, dfallmetas )
-		pass
 	
 	counter += 1
 	print(counter)
@@ -136,21 +133,20 @@ for slice in range(0,2): # for testing
 		dfallmetas["c_rev_id"] = dfallmetas['c_rev_id'].fillna(0).astype('int')
 		dfallmetas['c_timestamp'] = dfallmetas['c_timestamp'].fillna(0).astype('int64').astype(str)
 		dfallmetas['timestamp'] = dfallmetas['timestamp'].fillna(0).astype('int64').astype(str)
-		print(dfallmetas.info())
+		# print(dfallmetas.info())
 
 		#locate and concat the most most recent timestamp
 		idx = dfallmetas.groupby(['page_id'])['timestamp'].transform(max) == dfallmetas['timestamp']
 		dftemp = dfallmetas[idx]
 
 
-		# tempy = dfallmetas.groupby(['page_id'])['timestamp'].agg('max')
-		tempy = dfallmetas.groupby(['page_id'])['timestamp'].transform(max)
+		# dftempy = dfallmetas.groupby(['page_id'])['timestamp'].agg('max')
+		# # tempy = dfallmetas.groupby(['page_id'])['timestamp'].transform(max)
 
-		print('tempy')
-		print(tempy.count)
-		print(tempy)
+		# print('tempy')
+		# print(dftempy.count)
+		# print(dftempy)
 
-		# remove your pwds from the file!!! then commit
 		# why is it not clearing the df after saving?
 		# why is the newest the same for both saves?
 		# why can't i group and max the newest ones? 
@@ -164,39 +160,44 @@ for slice in range(0,2): # for testing
 		# # well, that did SOMETHING. unsure what...!!!! 
 		# dfnewest = dfnewest.groupby('page_id')['c_timestamp'].apply(lambda x: list(np.unique(x)))
 
-		print('dfnewest')
-		print(dfnewest)
+		# print('dfnewest')
+		# print(dfnewest)
 
 		# dfallmetas = pd.concat([dfallmetas, dfnewest], ignore_index=True, sort=False)
 
-		#save df and reset to empty
+		#writes dfs
 		savepath = f"output/enwiki_bio_rev_ids{str(counter)}.csv"
 		savepathnew = f"output/enwiki_bio_rev_idsnew{str(counter)}.csv"
+		# savepathnewtempy = f"output/enwiki_bio_rev_idsnewtempy{str(counter)}.csv"
 		print(savepath)
 		dfallmetas.to_csv(savepath, index=False)
 		dfnewest.to_csv(savepathnew, index=False)
-		dfallmetas.iloc[0:0]	
-		dfnewest.iloc[0:0]	
-		dftemp.iloc[0:0]	
+		dfallmetas = dfallmetas.iloc[0:0]	
+		dfnewest = dfnewest.iloc[0:0]	
+		dftemp = dftemp.iloc[0:0]	
 
-print(dfallmetas)
 
-redirects = []
-for element in id_exec_list:
-	if element not in dfallmetas.page_id.unique().tolist():
-		redirects.append(element)
+		# #checks for redirects, for debugging
+		# redirects = []
+		# for element in id_exec_list:
+		# 	if element not in dfallmetas.page_id.unique().tolist():
+		# 		redirects.append(element)
+		# print("these didn't come back:")
+		# print(redirects)
 
-print("these didn't come back:")
-print(redirects)
+		# moved =[]
+		# df_list = dfallmetas.page_id.unique().tolist()
+		# for element in df_list:
+		# 	if element not in id_exec_list:
+		# 		moved.append(element)
+		# print("these are my new page IDs:")
+		# print(moved)
 
-moved =[]
-df_list = dfallmetas.page_id.unique().tolist()
-for element in df_list:
-	if element not in id_exec_list:
-		moved.append(element)
+		#clears all dfs 
+		dfallmetas = dfallmetas.iloc[0:0]	
+		dfnewest = dfnewest.iloc[0:0]	
+		dftemp = dftemp.iloc[0:0]	
 
-print("these are my new page IDs:")
-print(moved)
 
 
 #when done, close
