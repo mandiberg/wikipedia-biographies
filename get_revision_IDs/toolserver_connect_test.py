@@ -129,11 +129,11 @@ for slice in range(0,4): # for testing
 	# if counter % n == 0:
 
 		#set datatypes
-		dfallmetas = dfallmetas.drop_duplicates()
-		dfallmetas["rev_id"] = dfallmetas['rev_id'].fillna(0).astype('int')
-		dfallmetas["c_rev_id"] = dfallmetas['c_rev_id'].fillna(0).astype('int')
-		dfallmetas['c_timestamp'] = dfallmetas['c_timestamp'].fillna(0).astype('int64').astype(str)
-		dfallmetas['timestamp'] = dfallmetas['timestamp'].fillna(0).astype('int64').astype(str)
+		dfallmetas = dfallmetas.drop_duplicates().dropna()
+		dfallmetas["rev_id"] = dfallmetas['rev_id'].astype('int')
+		dfallmetas["c_rev_id"] = dfallmetas['c_rev_id'].astype('int')
+		dfallmetas['c_timestamp'] = dfallmetas['c_timestamp'].astype('int64').astype(str)
+		dfallmetas['timestamp'] = dfallmetas['timestamp'].astype('int64').astype(str)
 		# print(dfallmetas.info())
 
 		#locate and concat the most most recent timestamp
@@ -146,14 +146,14 @@ for slice in range(0,4): # for testing
 		dfnewest['timestamp'] = dftemp.iloc[:, 3]
 
 		# add newest to main df
-		# dfallmetas = pd.concat([dfallmetas, dfnewest], ignore_index=True, sort=False)
+		dfallmetas = pd.concat([dfallmetas, dfnewest], ignore_index=True, sort=False)
 
 		#writes dfs
 		savepath = f"output/enwiki_bio_rev_ids{str(counter)}.csv"
 		savepathnew = f"output/enwiki_bio_rev_idsnew{str(counter)}.csv"
 		# savepathnewtempy = f"output/enwiki_bio_rev_idsnewtempy{str(counter)}.csv"
 		print(savepath)
-		dfallmetas.to_csv(savepath, index=False)
+		dfallmetas.drop(columns=['c_timestamp', 'c_rev_id']).sort_values(by=['page_id', 'rev_id'], ascending=False).to_csv(savepath, index=False)
 		dfnewest.to_csv(savepathnew, index=False)
 		dfallmetas = dfallmetas.iloc[0:0]	
 		dfnewest = dfnewest.iloc[0:0]	
