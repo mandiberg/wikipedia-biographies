@@ -27,7 +27,8 @@ port = 13306
 start_time = time.time()
 
 # file ="wpCreatorsAllBiographies.csv"
-file ="100000pageids.csv"
+file ="200k_pageIDs00.csv"
+megaslice = 1
 
 
 def doQuery( conn, id_list, dfallmetas ) :
@@ -94,8 +95,10 @@ dfallmetas = pd.DataFrame(columns=['page_id','rev_id','c_rev_id','c_timestamp','
 dfnewest = pd.DataFrame(columns=['page_id','rev_id','c_rev_id','c_timestamp','timestamp'])
 
 id_exec_list = []
-for slice in range(0,4): # for testing
-# for slice in range(0,slices): # for production
+slicetimes = []
+# for slice in range(0,35): # for testing
+for slice in range(0,slices): # for production
+	slicestart_time = time.time()
 	id_list = list_df[slice]['Page ID'].fillna(0).astype(int).tolist()	
 	id_exec_list = id_exec_list + id_list
 	
@@ -108,9 +111,12 @@ for slice in range(0,4): # for testing
 		dfallmetas = doQuery( myConnection, id_list, dfallmetas )
 	
 	counter += 1
+	slicetime = time.time() - slicestart_time
+	slicetimes.append(slicetime)
+	print("--- %s seconds ---" % (slicetime))
 	print(counter)
-	if counter > 0: #for testing
-	# if counter % n == 0: # for production
+	# if counter % 10 == 0: #for testing
+	if counter % n == 0: # for production
 
 		#set datatypes
 		dfallmetas = dfallmetas.drop_duplicates().dropna()
@@ -132,9 +138,9 @@ for slice in range(0,4): # for testing
 		dfallmetas = pd.concat([dfallmetas, dfnewest], ignore_index=True, sort=False)
 
 		#writes dfs
-		savepath = f"output/enwiki_bio_rev_ids{str(counter)}.csv"
+		savepath = f"output/enwiki_bio_rev_ids_{str(megaslice)}-{str(counter)}.csv"
 		dfallmetas.drop(columns=['c_timestamp', 'c_rev_id']).sort_values(by=['page_id', 'rev_id'], ascending=False).to_csv(savepath, index=False)
-
+		print('SAVED FILE ------------ ',savepath)
 		# #checks for redirects, for debugging
 		# redirects = []
 		# for element in id_exec_list:
@@ -163,4 +169,6 @@ myConnection.close()
 
 print("query completed")
 print("--- %s seconds ---" % (time.time() - start_time))
+
+print(slicetimes)
 
