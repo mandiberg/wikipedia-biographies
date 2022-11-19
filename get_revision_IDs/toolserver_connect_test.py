@@ -170,8 +170,8 @@ for slice in range(0,2): # for testing
 		# dfallmetas = pd.concat([dfallmetas, dfnewest], ignore_index=True, sort=False)
 
 		#save df and reset to empty
-		savepath = f"enwiki_bio_rev_ids{str(counter)}.csv"
-		savepathnew = f"enwiki_bio_rev_idsnew{str(counter)}.csv"
+		savepath = f"output/enwiki_bio_rev_ids{str(counter)}.csv"
+		savepathnew = f"output/enwiki_bio_rev_idsnew{str(counter)}.csv"
 		print(savepath)
 		dfallmetas.to_csv(savepath, index=False)
 		dfnewest.to_csv(savepathnew, index=False)
