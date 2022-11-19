@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 *.cnf
 get_revision_IDs/.DS_Store
+.DS_Store
