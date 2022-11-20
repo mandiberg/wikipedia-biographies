@@ -118,7 +118,7 @@ for slice in range(0,slices): # for production
 	print("--- %s seconds ---" % (slicetime))
 	print(counter)
 	# if counter % 10 == 0: #for testing
-	if counter % n == 0: # for production
+	if counter % 10 == 0: # for production
 
 		#set datatypes
 		dfallmetas = dfallmetas.drop_duplicates().dropna()

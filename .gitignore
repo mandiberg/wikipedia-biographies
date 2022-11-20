@@ -130,3 +130,4 @@ dmypy.json
 *.cnf
 get_revision_IDs/.DS_Store
 .DS_Store
+get_revision_IDs/.BridgeSort
