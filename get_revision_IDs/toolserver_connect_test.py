@@ -27,7 +27,7 @@ port = 13306
 start_time = time.time()
 
 # file ="wpCreatorsAllBiographies.csv"
-file ="200k_pageIDs00.csv"
+file ="900k_pageIDs1.csv"
 megaslice = 1
 
 
@@ -44,7 +44,8 @@ def doQuery( conn, id_list, dfallmetas ) :
 	else:
 		sql_insert_query = "SELECT r.rev_page, p.rev_id p_rev_id, r.rev_id c_rev_id, TIMEDIFF(r.rev_timestamp,p.rev_timestamp), pg.page_id target, op.page_id original,IFNULL(pg.page_id,op.page_id) conditional FROM  	page op LEFT JOIN 	redirect rd ON (rd_from=op.page_id) LEFT JOIN  	page pg  	ON (pg.page_namespace=rd_namespace AND pg.page_title=rd_title) LEFT JOIN 	revision r  	ON IFNULL(pg.page_id,op.page_id) = r.rev_page LEFT JOIN 	revision p 	ON r.rev_parent_id=p.rev_id LEFT JOIN 	comment c  	ON r.rev_comment_id = c.comment_id LEFT JOIN 	change_tag ch  	ON ch.ct_rev_id=p.rev_id WHERE op.page_id IN ({}) AND r.rev_deleted=0 AND (p.rev_deleted=0 OR p.rev_deleted IS NULL) AND c.comment_text NOT LIKE '%Undid revision%' AND (ch.ct_params IS NULL OR ch.ct_tag_id NOT IN (590, 1, 8, 16, 582, 21, 20, 28, 577, 6, 31, 26, 14, 43, 39, 32, 60, 29, 52, 46, 561, 45, 59, 56, 216, 172, 87, 193, 217, 86, 539))  ORDER BY r.rev_timestamp DESC;".format(id_list)
 # 		sql_insert_query = "SELECT r.rev_page, p.rev_id, p.rev_timestamp, TIMEDIFF(r.rev_timestamp,p.rev_timestamp) FROM revision r, revision p, comment c WHERE r.rev_page IN ({}) AND r.rev_deleted=0 AND p.rev_deleted=0 AND r.rev_parent_id=p.rev_id AND r.rev_comment_id = c.comment_id AND c.comment_text NOT LIKE '%Undid revision%' ORDER BY r.rev_timestamp DESC;".format(id_list)
-		print('set single query')
+		print('set single query ',str(page_id))
+
 
 	cur.execute( sql_insert_query )
 	
@@ -106,6 +107,7 @@ for slice in range(0,slices): # for production
 		print ("less than n items, going one by one")
 		for page_id in id_list:
 			dfallmetas = doQuery( myConnection, page_id, dfallmetas )
+
 	else:
 		#execute query
 		dfallmetas = doQuery( myConnection, id_list, dfallmetas )
